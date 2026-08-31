@@ -5,17 +5,20 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell
 } from 'recharts';
+import { Users, Award, CheckCircle } from 'lucide-react';
 
 export function AnalyticsPage() {
   const [data, setData] = useState<any>(null);
+  const [evaluatorActivity, setEvaluatorActivity] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      const [applications, evaluations, interviews] = await Promise.all([
+      const [applications, evaluations, interviews, evaluatorsList] = await Promise.all([
         db.applications.toArray(),
         db.evaluations.filter(e => !e.isDraft).toArray(),
         db.interviews.toArray(),
+        db.evaluators.toArray(),
       ]);
 
       // By position
@@ -63,7 +66,23 @@ export function AnalyticsPage() {
       const evalledApps = new Set(evaluations.map(e => e.applicationId));
       const evalCompletion = Math.round((evalledApps.size / applications.length) * 100);
 
-      setData({ byPosition, byClub, byBatch, byStatus, avgByTrack, evalCompletion, totalApps: applications.length, totalEvals: evaluations.length });
+      // Evaluator activity stats
+      const evalStats = evaluatorsList.map(ev => {
+        const evals = evaluations.filter(e => e.evaluatorId === ev.id);
+        const avg = evals.length > 0
+          ? Math.round(evals.reduce((acc, curr) => acc + curr.totalScore, 0) / evals.length)
+          : undefined;
+        return {
+          id: ev.id,
+          name: ev.name,
+          role: ev.role,
+          count: evals.length,
+          avgScore: avg,
+        };
+      }).sort((a, b) => b.count - a.count);
+
+      setEvaluatorActivity(evalStats);
+      setData({ byPosition, byClub, byBatch, byStatus, avgByTrack, evalCompletion, totalApps: applications.length, totalEvals: evaluations.length, totalEvaluators: evaluatorsList.length });
       setIsLoading(false);
     }
     load();
@@ -85,21 +104,78 @@ export function AnalyticsPage() {
 
   return (
     <div>
-      <PageHeader title="Analytics" subtitle="Selection process overview" />
+      <PageHeader title="Analytics & Evaluator Activity" subtitle="Selection process and multi-evaluator analytics" />
       <div className="p-6 space-y-6">
 
         {/* Summary cards */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             { label: 'Total Applications', value: data.totalApps },
             { label: 'Evaluations Submitted', value: data.totalEvals },
-            { label: 'Evaluation Completion', value: `${data.evalCompletion}%` },
+            { label: 'Evaluators in Panel', value: data.totalEvaluators },
+            { label: 'Evaluation Coverage', value: `${data.evalCompletion}%` },
           ].map(s => (
             <div key={s.label} className="card p-4">
               <div className="text-2xl font-semibold text-navy-700 font-mono">{s.value}</div>
               <div className="text-xs text-stone-400 mt-1">{s.label}</div>
             </div>
           ))}
+        </div>
+
+        {/* Evaluator Activity Table */}
+        <div className="card">
+          <div className="px-5 py-3 border-b border-stone-100 flex items-center justify-between">
+            <div className="section-header mb-0">Evaluator Progress & Centralized Scoring Activity</div>
+            <span className="text-xs text-stone-400 font-mono">{evaluatorActivity.length} evaluators registered</span>
+          </div>
+          <div className="table-wrapper">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Evaluator</th>
+                  <th>Role</th>
+                  <th>Evaluations Completed</th>
+                  <th>Average Score Given</th>
+                  <th>Progress</th>
+                </tr>
+              </thead>
+              <tbody>
+                {evaluatorActivity.map(ev => {
+                  const pct = data.totalApps > 0 ? Math.round((ev.count / data.totalApps) * 100) : 0;
+                  return (
+                    <tr key={ev.id}>
+                      <td className="font-medium text-stone-800">{ev.name}</td>
+                      <td>
+                        <span className="badge bg-stone-100 text-stone-700 text-2xs">{ev.role}</span>
+                      </td>
+                      <td>
+                        <span className="font-mono text-sm font-semibold text-navy-700">{ev.count}</span>
+                        <span className="text-xs text-stone-400 ml-1">/ {data.totalApps}</span>
+                      </td>
+                      <td>
+                        {ev.avgScore !== undefined ? (
+                          <span className="font-mono text-sm text-stone-800">{ev.avgScore}/100</span>
+                        ) : (
+                          <span className="text-stone-300">—</span>
+                        )}
+                      </td>
+                      <td className="w-48">
+                        <div className="flex items-center gap-2">
+                          <div className="score-bar flex-1">
+                            <div
+                              className="h-full rounded bg-navy-700 transition-all"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <span className="text-2xs font-mono text-stone-500 w-8 text-right">{pct}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -180,3 +256,4 @@ export function AnalyticsPage() {
     </div>
   );
 }
+

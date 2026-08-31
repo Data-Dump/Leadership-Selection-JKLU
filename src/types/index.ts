@@ -6,7 +6,6 @@ export type ApplicationStatus =
   | 'Pending Review'
   | 'Under Review'
   | 'Shortlisted'
-  | 'Interview'
   | 'Selected'
   | 'Waitlisted'
   | 'Hold'
@@ -22,22 +21,24 @@ export type RecommendationType =
   | 'Hold'
   | 'Do Not Recommend';
 
-export type UserRole = 'Super Admin' | 'Admin' | 'Evaluator' | 'Viewer' | 'Interviewer';
+export type UserRole = 'Super Admin' | 'Admin' | 'Evaluator' | 'Viewer';
 
 export type AuditAction =
+  | 'login'
+  | 'logout'
   | 'imported'
   | 'shortlisted'
   | 'held'
   | 'rejected'
-  | 'moved_to_interview'
   | 'selected'
   | 'waitlisted'
   | 'evaluation_submitted'
   | 'evaluation_updated'
-  | 'interview_recorded'
   | 'final_decision'
   | 'note_added'
   | 'status_changed';
+
+
 
 export type DataQualitySeverity = 'Critical' | 'Warning' | 'Info';
 

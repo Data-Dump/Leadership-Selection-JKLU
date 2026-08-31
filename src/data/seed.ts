@@ -62,17 +62,8 @@ const DEFAULT_RUBRIC_CRITERIA = [
   },
 ];
 
-const INTERVIEW_CRITERIA = [
-  { criterionName: 'Leadership', score: 0, weight: 25 },
-  { criterionName: 'Communication', score: 0, weight: 20 },
-  { criterionName: 'Problem Solving', score: 0, weight: 20 },
-  { criterionName: 'Role Fit', score: 0, weight: 20 },
-  { criterionName: 'Confidence / Presence', score: 0, weight: 15 },
-];
-
-export { INTERVIEW_CRITERIA };
-
 const DEMO_EVALUATORS: Evaluator[] = [
+
   {
     id: 'eval-kaushal-superadmin',
     name: 'Kaushal Malvi',

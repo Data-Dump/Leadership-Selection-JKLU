@@ -7,7 +7,7 @@ import { PageHeader, StatusBadge, ScoreDisplay, ConfirmDialog, EmptyState } from
 import { calculateAverageScore, hasSignificantDisagreement } from '../scoring/engine';
 import { comparePositions } from '../utils/positionHierarchy';
 import type { Application, Candidate, Evaluation, Track } from '../types';
-import { AlertTriangle, Calendar } from 'lucide-react';
+import { AlertTriangle, CheckSquare } from 'lucide-react';
 
 interface ShortlistRow {
   application: Application;
@@ -34,7 +34,7 @@ export function ShortlistPage() {
 
   async function load() {
     const [applications, candidates, evaluations] = await Promise.all([
-      db.applications.where('status').anyOf(['Shortlisted', 'Interview']).toArray(),
+      db.applications.where('status').equals('Shortlisted').toArray(),
       db.candidates.toArray(),
       db.evaluations.filter(e => !e.isDraft).toArray(),
     ]);
@@ -85,7 +85,7 @@ export function ShortlistPage() {
   async function bulkAction(action: string) {
     if (!user) return;
     const statusMap: Record<string, string> = {
-      interview: 'Interview',
+      select: 'Selected',
       hold: 'Hold',
       reject: 'Rejected',
     };
@@ -108,30 +108,25 @@ export function ShortlistPage() {
       <div className="p-6">
         {/* Tabs */}
         <div className="flex gap-1 mb-4 border-b border-stone-200">
-          {TABS.map(tab => {
-            const count = tab.key === 'all' ? rows.length : rows.filter(r => r.application.track === tab.key).length;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key as never)}
-                className={`px-4 py-2 text-sm transition-colors border-b-2 -mb-px ${
-                  activeTab === tab.key
-                    ? 'border-navy-700 text-navy-700 font-medium'
-                    : 'border-transparent text-stone-500 hover:text-stone-700'
-                }`}
-              >
-                {tab.label} ({count})
-              </button>
-            );
-          })}
+          {TABS.map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-4 py-2 text-sm border-b-2 -mb-px transition-colors ${
+                activeTab === tab.key ? 'border-navy-700 text-navy-700 font-medium' : 'border-transparent text-stone-500 hover:text-stone-700'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        {/* Bulk actions */}
+        {/* Bulk action bar */}
         {selected.size > 0 && (
           <div className="mb-4 flex items-center gap-3 p-3 bg-navy-50 border border-navy-200 rounded text-sm">
             <span className="font-medium text-navy-700">{selected.size} selected</span>
-            <button className="btn btn-sm btn-secondary" onClick={() => setConfirmBulk('interview')}>
-              <Calendar size={12} /> Move to Interview
+            <button className="btn btn-sm btn-secondary" onClick={() => setConfirmBulk('select')}>
+              <CheckSquare size={12} /> Select
             </button>
             <button className="btn btn-sm btn-secondary" onClick={() => setConfirmBulk('hold')}>
               Hold

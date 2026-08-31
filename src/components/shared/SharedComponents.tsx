@@ -5,12 +5,12 @@ const STATUS_CONFIG: Record<ApplicationStatus, { label: string; className: strin
   'Pending Review': { label: 'Pending', className: 'badge-pending' },
   'Under Review':  { label: 'Under Review', className: 'badge-review' },
   'Shortlisted':   { label: 'Shortlisted', className: 'badge-shortlisted' },
-  'Interview':     { label: 'Interview', className: 'badge-interview' },
   'Selected':      { label: 'Selected', className: 'badge-selected' },
   'Waitlisted':    { label: 'Waitlisted', className: 'badge-waitlisted' },
   'Hold':          { label: 'Hold', className: 'badge-hold' },
   'Rejected':      { label: 'Rejected', className: 'badge-rejected' },
 };
+
 
 interface StatusBadgeProps {
   status: ApplicationStatus;

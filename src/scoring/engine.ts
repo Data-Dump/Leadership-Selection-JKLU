@@ -75,29 +75,19 @@ export function hasSignificantDisagreement(evaluations: Evaluation[]): boolean {
 }
 
 /**
- * Calculate final combined score using cycle weights.
- * Returns undefined if interview hasn't happened (and we shouldn't fabricate).
+ * Calculate final combined score directly from evaluation score.
  */
 export function calculateFinalScore(
   applicationScore: number,
-  interviewScore: number | undefined,
-  cycle: Pick<SelectionCycle, 'applicationWeight' | 'interviewWeight'>
+  _interviewScore?: number,
+  _cycle?: any
 ): { score: number; isComplete: boolean } {
-  if (interviewScore === undefined) {
-    // Incomplete — return application score only as indicative, mark incomplete
-    return {
-      score: applicationScore,
-      isComplete: false,
-    };
-  }
-  const combined =
-    (applicationScore * cycle.applicationWeight) / 100 +
-    (interviewScore * cycle.interviewWeight) / 100;
   return {
-    score: Math.round(combined * 10) / 10,
+    score: Math.round(applicationScore * 10) / 10,
     isComplete: true,
   };
 }
+
 
 /**
  * Validate that rubric criterion weights sum to 100%

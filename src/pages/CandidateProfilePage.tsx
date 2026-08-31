@@ -7,9 +7,9 @@ import {
   StatusBadge, TrackBadge, ScoreDisplay, ConfirmDialog, PageHeader
 } from '../components/shared/SharedComponents';
 import { calculateAverageScore, hasSignificantDisagreement, DISAGREEMENT_THRESHOLD } from '../scoring/engine';
-import type { Candidate, Application, Evaluation, Interview, FinalDecision } from '../types';
+import type { Candidate, Application, Evaluation, FinalDecision } from '../types';
 import {
-  ChevronLeft, Star, PauseCircle, XCircle, Calendar, CheckCircle,
+  ChevronLeft, Star, PauseCircle, XCircle, CheckCircle,
   Copy, Check, AlertTriangle, ChevronDown, ChevronUp, User, FileText
 } from 'lucide-react';
 import { EvaluationPanel } from '../components/evaluation/EvaluationPanel';
@@ -17,7 +17,6 @@ import { EvaluationPanel } from '../components/evaluation/EvaluationPanel';
 interface ApplicationData {
   application: Application;
   evaluations: Evaluation[];
-  interview?: Interview;
   finalDecision?: FinalDecision;
   avgScore?: number;
   hasDisagreement: boolean;
@@ -38,11 +37,10 @@ export function CandidateProfilePage() {
 
   const load = useCallback(async () => {
     if (!id) return;
-    const [c, apps, evals, interviews, decisions] = await Promise.all([
+    const [c, apps, evals, decisions] = await Promise.all([
       db.candidates.get(id),
       db.applications.where('candidateId').equals(id).toArray(),
       db.evaluations.toArray(),
-      db.interviews.toArray(),
       db.finalDecisions.toArray(),
     ]);
 
@@ -51,14 +49,12 @@ export function CandidateProfilePage() {
 
     const data: ApplicationData[] = apps.map(app => {
       const appEvals = evals.filter(e => e.applicationId === app.id);
-      const appInterview = interviews.find(i => i.applicationId === app.id);
       const appDecision = decisions.find(d => d.applicationId === app.id);
       const submittedEvals = appEvals.filter(e => !e.isDraft);
 
       return {
         application: app,
         evaluations: appEvals,
-        interview: appInterview,
         finalDecision: appDecision,
         avgScore: calculateAverageScore(submittedEvals),
         hasDisagreement: hasSignificantDisagreement(submittedEvals),
@@ -82,7 +78,6 @@ export function CandidateProfilePage() {
       shortlist: 'Shortlisted',
       hold: 'Hold',
       reject: 'Rejected',
-      interview: 'Interview',
       select: 'Selected',
       waitlist: 'Waitlisted',
     };
@@ -211,12 +206,6 @@ export function CandidateProfilePage() {
                   </button>
                   <button
                     className="btn btn-sm btn-secondary"
-                    onClick={() => setConfirmAction({ action: 'interview', appId: ad.application.id, label: 'Move to Interview?' })}
-                  >
-                    <Calendar size={12} /> Move to Interview
-                  </button>
-                  <button
-                    className="btn btn-sm btn-secondary"
                     onClick={() => setConfirmAction({ action: 'hold', appId: ad.application.id, label: 'Put application on Hold?' })}
                   >
                     <PauseCircle size={12} /> Hold
@@ -237,6 +226,7 @@ export function CandidateProfilePage() {
                     </button>
                   )}
                 </div>
+
 
                 {/* Application content */}
                 <div className="p-5 space-y-5">

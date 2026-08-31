@@ -42,10 +42,10 @@ export async function setApplicationStatus(
     'Shortlisted': 'shortlisted',
     'Hold': 'held',
     'Rejected': 'rejected',
-    'Interview': 'moved_to_interview',
     'Selected': 'selected',
     'Waitlisted': 'waitlisted',
   };
+
 
   await logAudit(userId, userName, actionMap[status] || 'status_changed', {
     candidateId: app.candidateId,

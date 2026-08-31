@@ -14,42 +14,45 @@ interface NavItem {
   icon: React.ElementType;
   label: string;
   adminOnly?: boolean;
+  evaluatorOnly?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/evaluator/dashboard', icon: LayoutDashboard, label: 'Evaluator Hub' },
+  { to: '/dashboard', icon: BarChart2, label: 'Admin Overview', adminOnly: true },
+  { to: '/evaluation', icon: ClipboardCheck, label: 'Evaluation Queue' },
   { to: '/candidates', icon: Users, label: 'Candidates' },
-  { to: '/applications', icon: FileText, label: 'Applications' },
-  { to: '/positions', icon: Briefcase, label: 'Positions' },
-  { to: '/evaluation', icon: ClipboardCheck, label: 'Evaluation' },
-  { to: '/shortlist', icon: Star, label: 'Shortlist' },
-  { to: '/interviews', icon: Calendar, label: 'Interviews' },
-  { to: '/final-selection', icon: CheckSquare, label: 'Final Selection' },
+  { to: '/positions', icon: Briefcase, label: 'Positions', adminOnly: true },
+  { to: '/shortlist', icon: Star, label: 'Shortlist', adminOnly: true },
+
+  { to: '/final-selection', icon: CheckSquare, label: 'Final Selection', adminOnly: true },
   { to: '/analytics', icon: BarChart2, label: 'Analytics' },
-  { to: '/import', icon: Upload, label: 'Import Data', adminOnly: true },
   { to: '/data-quality', icon: AlertTriangle, label: 'Data Quality', adminOnly: true },
   { to: '/audit-log', icon: BookOpen, label: 'Audit Log', adminOnly: true },
   { to: '/settings', icon: Settings, label: 'Settings' },
+
 ];
 
 const ROLE_COLORS: Record<string, string> = {
   'Super Admin': 'text-purple-300 font-semibold',
   Admin: 'text-amber-400',
-  Evaluator: 'text-blue-400',
-  Interviewer: 'text-purple-400',
+  Evaluator: 'text-blue-400 font-medium',
   Viewer: 'text-stone-400',
 };
+
 
 export function Sidebar() {
   const { user, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
 
   const isAdminOrSuper = user?.role === 'Admin' || user?.role === 'Super Admin';
+  const isEvaluator = user?.role === 'Evaluator';
 
   const visibleItems = NAV_ITEMS.filter(item => {
     if (item.adminOnly && !isAdminOrSuper) return false;
     return true;
   });
+
 
   return (
     <aside
@@ -62,17 +65,18 @@ export function Sidebar() {
     >
       {/* Logo / Header */}
       <div className={clsx(
-        'flex items-center border-b border-navy-600 py-4',
+        'flex items-center border-b border-navy-600 py-3.5',
         collapsed ? 'justify-center px-0' : 'px-4 gap-3'
       )}>
-        <img src="/logo.png" alt="JKLU" className="w-7 h-7 object-contain rounded shrink-0" />
+        <img src="/jklu_white.png" alt="JKLU" className="h-8 w-auto object-contain shrink-0" />
         {!collapsed && (
           <div className="overflow-hidden">
-            <div className="font-display text-sm leading-tight text-white">JKLU</div>
+            <div className="font-display text-sm leading-tight text-white font-medium">JKLU</div>
             <div className="text-2xs text-navy-300 uppercase tracking-wider truncate">Leadership Selection</div>
           </div>
         )}
       </div>
+
 
       {/* Centralized Cloud DB status indicator */}
       {!collapsed && (

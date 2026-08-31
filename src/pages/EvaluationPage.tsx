@@ -5,6 +5,7 @@ import { PageHeader, StatusBadge, ScoreDisplay, EmptyState } from '../components
 import { EvaluationPanel } from '../components/evaluation/EvaluationPanel';
 import { useAuth } from '../auth/AuthContext';
 import { calculateAverageScore } from '../scoring/engine';
+import { comparePositions } from '../utils/positionHierarchy';
 import type { Application, Candidate, Evaluation } from '../types';
 
 interface EvalQueueRow {
@@ -45,11 +46,20 @@ export function EvaluationPage() {
           submittedEvals: submitted,
           avgScore: calculateAverageScore(submitted),
         };
+      })
+      .sort((a, b) => {
+        const posCompare = comparePositions(
+          { name: a.application.position, club: a.application.club, track: a.application.track },
+          { name: b.application.position, club: b.application.club, track: b.application.track }
+        );
+        if (posCompare !== 0) return posCompare;
+        return a.candidate.fullName.localeCompare(b.candidate.fullName);
       });
 
     setQueue(rows);
     setIsLoading(false);
   }
+
 
   useEffect(() => { load(); }, [user]);
 

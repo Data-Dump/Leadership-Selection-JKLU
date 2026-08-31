@@ -5,7 +5,8 @@ import { PageHeader } from '../components/shared/SharedComponents';
 import type { SelectionCycle, Evaluator, UserRole } from '../types';
 import { DEFAULT_RUBRIC_CRITERIA } from '../data/seed';
 import { v4 as uuidv4 } from 'uuid';
-import { Check, AlertTriangle, Key, Lock, Eye, EyeOff, ShieldCheck, Crown, Shield } from 'lucide-react';
+import { Check, AlertTriangle, Key, Lock, Eye, EyeOff, ShieldCheck, Crown, Shield, Users, CheckCircle } from 'lucide-react';
+
 
 export function SettingsPage() {
   const { user } = useAuth();
@@ -14,6 +15,7 @@ export function SettingsPage() {
 
   const [cycle, setCycle] = useState<SelectionCycle | null>(null);
   const [evaluators, setEvaluators] = useState<Evaluator[]>([]);
+  const [evaluatorStats, setEvaluatorStats] = useState<Record<string, { completed: number; drafts: number; avgScore?: number }>>({});
   const [activeTab, setActiveTab] = useState<'security' | 'evaluators' | 'cycle' | 'rubric' | 'scoring'>('security');
   const [isSaving, setIsSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState('');
@@ -44,9 +46,10 @@ export function SettingsPage() {
   const [adminPassMsg, setAdminPassMsg] = useState('');
 
   async function load() {
-    const [c, evs] = await Promise.all([
+    const [c, evs, allEvals] = await Promise.all([
       db.selectionCycles.where('active').equals(1).first(),
       db.evaluators.toArray(),
+      db.evaluations.toArray(),
     ]);
     setCycle(c || null);
     if (c) {
@@ -55,9 +58,23 @@ export function SettingsPage() {
       setBlindEval(c.blindEvaluation);
     }
     setEvaluators(evs);
+
+    // Compute stats per evaluator
+    const stats: Record<string, { completed: number; drafts: number; avgScore?: number }> = {};
+    evs.forEach(ev => {
+      const myEvals = allEvals.filter(e => e.evaluatorId === ev.id);
+      const completed = myEvals.filter(e => !e.isDraft);
+      const drafts = myEvals.filter(e => e.isDraft);
+      const avg = completed.length > 0
+        ? Math.round(completed.reduce((acc, curr) => acc + curr.totalScore, 0) / completed.length)
+        : undefined;
+      stats[ev.id] = { completed: completed.length, drafts: drafts.length, avgScore: avg };
+    });
+    setEvaluatorStats(stats);
   }
 
   useEffect(() => { load(); }, []);
+
 
   async function handleSelfPasswordChange(e: React.FormEvent) {
     e.preventDefault();
@@ -195,10 +212,10 @@ export function SettingsPage() {
           { key: 'evaluators' as const, label: 'Committee & Evaluators' },
           { key: 'cycle' as const, label: 'Selection Cycle' },
           { key: 'rubric' as const, label: 'Default Rubric' },
-          { key: 'scoring' as const, label: 'Scoring Weights' },
         ]
       : []),
   ];
+
 
   return (
     <div>
@@ -329,69 +346,147 @@ export function SettingsPage() {
 
         {/* 2. Evaluators & Committee Members */}
         {activeTab === 'evaluators' && isAdminOrSuper && (
-          <div className="max-w-3xl space-y-6">
-            <div className="card">
-              <div className="px-5 py-3 border-b border-stone-100 flex items-center justify-between">
-                <div className="section-header mb-0">Committee Accounts & Evaluators</div>
+          <div className="space-y-6">
+            {/* Top Summary & Cloud Sync Banner */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="card p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+                  <Users size={18} />
+                </div>
+                <div>
+                  <div className="text-xl font-bold font-mono text-stone-800">{evaluators.length}</div>
+                  <div className="text-2xs text-stone-500">Total Registered Members</div>
+                </div>
+              </div>
+
+              <div className="card p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                  <CheckCircle size={18} />
+                </div>
+                <div>
+                  <div className="text-xl font-bold font-mono text-emerald-700">
+                    {evaluators.filter(e => e.active).length}
+                  </div>
+                  <div className="text-2xs text-stone-500">Active Evaluators</div>
+                </div>
+              </div>
+
+              <div className="card p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center shrink-0">
+                  <Crown size={18} />
+                </div>
+                <div>
+                  <div className="text-xl font-bold font-mono text-purple-700">
+                    {evaluators.filter(e => e.role === 'Super Admin' || e.role === 'Admin').length}
+                  </div>
+                  <div className="text-2xs text-stone-500">Administrators</div>
+                </div>
+              </div>
+
+              <div className="card p-4 flex items-center gap-3 bg-emerald-50/60 border-emerald-200">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                  <ShieldCheck size={18} />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-emerald-900">Cloud Sync (Live)</div>
+                  <div className="text-2xs text-emerald-700">Dynamic evaluator pool</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Main Table Card */}
+            <div className="card overflow-hidden">
+              <div className="px-5 py-4 border-b border-stone-100 flex flex-wrap items-center justify-between gap-3 bg-white">
+                <div>
+                  <h2 className="font-semibold text-stone-800 text-sm">Active Panel Evaluators & Committee</h2>
+                  <p className="text-2xs text-stone-500 mt-0.5">
+                    Centralized evaluator database · Evaluators auto-register upon entering their name
+                  </p>
+                </div>
                 <div className="flex items-center gap-2">
                   {isSuperAdmin && (
                     <span className="badge bg-purple-50 text-purple-800 border-purple-200 text-2xs flex items-center gap-1">
-                      <Crown size={10} /> Super Admin Mode
+                      <Crown size={10} /> Super Admin Control
                     </span>
                   )}
-                  <span className="text-xs text-stone-400 font-mono">{evaluators.length} members</span>
                 </div>
               </div>
-              <div className="table-wrapper">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Email</th>
-                      <th>Role</th>
-                      <th>Status</th>
-                      <th className="text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {evaluators.map(ev => (
-                      <tr key={ev.id}>
-                        <td className="font-medium text-stone-800 flex items-center gap-1.5">
-                          {ev.name}
-                          {ev.id === user?.id && (
-                            <span className="text-2xs font-normal text-navy-600 bg-navy-50 px-1.5 py-0.5 rounded border border-navy-200">You</span>
-                          )}
+
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-stone-200 bg-stone-50 text-stone-600 text-xs font-semibold">
+                    <th className="py-3 px-4">Member Details</th>
+                    <th className="py-3 px-4">Role</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100 text-xs">
+                  {evaluators.map(ev => {
+                    const isAutoRegistered = ev.email.endsWith('@jklu.evaluator');
+
+                    return (
+                      <tr key={ev.id} className="hover:bg-stone-50/80 transition-colors">
+                        {/* Member Name + Email */}
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-stone-800 text-sm">{ev.name}</span>
+                            {ev.id === user?.id && (
+                              <span className="text-2xs font-semibold text-navy-700 bg-navy-50 px-1.5 py-0.5 rounded border border-navy-200">
+                                You
+                              </span>
+                            )}
+                            {isAutoRegistered && (
+                              <span className="text-2xs text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                                Dynamic Panel
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-stone-400 font-mono text-2xs mt-0.5 truncate max-w-xs">
+                            {ev.email}
+                          </div>
                         </td>
-                        <td className="text-xs text-stone-500 font-mono">{ev.email}</td>
-                        <td>
+
+                        {/* Role Badge */}
+                        <td className="py-3 px-4">
                           {ev.role === 'Super Admin' ? (
-                            <span className="badge bg-purple-50 text-purple-800 border-purple-200 text-2xs flex items-center gap-1 w-fit">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 text-2xs font-semibold">
                               <Crown size={10} /> Super Admin
                             </span>
                           ) : ev.role === 'Admin' ? (
-                            <span className="badge bg-amber-50 text-amber-800 border-amber-200 text-2xs flex items-center gap-1 w-fit">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-2xs font-semibold">
                               <Shield size={10} /> Admin
                             </span>
                           ) : (
-                            <span className="badge bg-blue-50 text-blue-800 border-blue-200 text-2xs">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-2xs font-medium">
                               {ev.role}
                             </span>
                           )}
                         </td>
-                        <td>
+
+                        {/* Status */}
+                        <td className="py-3 px-4">
                           {ev.active ? (
-                            <span className="badge badge-selected text-2xs">Active</span>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-2xs font-medium">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              Active
+                            </span>
                           ) : (
-                            <span className="badge badge-rejected text-2xs">Inactive</span>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 border border-stone-200 text-2xs font-medium">
+                              <span className="w-1.5 h-1.5 rounded-full bg-stone-400" />
+                              Inactive
+                            </span>
                           )}
                         </td>
-                        <td className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            {/* Super Admin can change password for anyone */}
+
+
+                        {/* Actions */}
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
                             {isSuperAdmin ? (
                               <button
                                 type="button"
-                                className="btn btn-ghost btn-sm text-xs text-navy-700"
+                                className="btn btn-secondary btn-sm text-xs py-1 px-2.5 gap-1"
                                 onClick={() => {
                                   setSelectedEvaluatorForPass(ev);
                                   setAdminNewPass('');
@@ -399,26 +494,29 @@ export function SettingsPage() {
                                 }}
                                 title="Super Admin: Set new password for this account"
                               >
-                                <Key size={12} /> Change Pass
+                                <Key size={11} />
+                                <span>Reset Pass</span>
                               </button>
                             ) : ev.id === user?.id ? (
                               <button
                                 type="button"
-                                className="btn btn-ghost btn-sm text-xs text-navy-700"
+                                className="btn btn-secondary btn-sm text-xs py-1 px-2.5 gap-1"
                                 onClick={() => setActiveTab('security')}
                                 title="Change your own password"
                               >
-                                <Key size={12} /> My Password
+                                <Key size={11} />
+                                <span>My Password</span>
                               </button>
-                            ) : (
-                              <span className="text-2xs text-stone-400 italic px-2">Managed by Super Admin</span>
-                            )}
+                            ) : null}
 
-                            {/* Super Admin can activate/deactivate */}
                             {isSuperAdmin && ev.id !== user?.id && (
                               <button
                                 type="button"
-                                className="btn btn-ghost btn-sm text-xs text-stone-500 hover:text-stone-800"
+                                className={`btn btn-sm text-xs py-1 px-2.5 ${
+                                  ev.active
+                                    ? 'btn-ghost text-stone-500 hover:text-red-600 hover:bg-red-50'
+                                    : 'btn-secondary text-emerald-700 hover:bg-emerald-50'
+                                }`}
                                 onClick={() => toggleEvaluator(ev.id, ev.active)}
                               >
                                 {ev.active ? 'Deactivate' : 'Activate'}
@@ -427,11 +525,12 @@ export function SettingsPage() {
                           </div>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
+
 
             {/* Add new committee member (Super Admin Only) */}
             {isSuperAdmin ? (
@@ -457,7 +556,6 @@ export function SettingsPage() {
                       <option value="Super Admin">Super Admin</option>
                       <option value="Admin">Admin</option>
                       <option value="Evaluator">Evaluator</option>
-                      <option value="Interviewer">Interviewer</option>
                       <option value="Viewer">Viewer</option>
                     </select>
                   </div>
@@ -531,40 +629,8 @@ export function SettingsPage() {
             </div>
           </div>
         )}
-
-        {/* 5. Scoring Weights */}
-        {activeTab === 'scoring' && cycle && isAdminOrSuper && (
-          <div className="card p-6 max-w-sm space-y-4">
-            <div>
-              <label className="label">Application Score Weight (%)</label>
-              <input
-                type="number" min={0} max={100}
-                className="input"
-                value={appWeight}
-                onChange={e => { const v = parseInt(e.target.value) || 0; setAppWeight(v); setIntWeight(100 - v); }}
-              />
-            </div>
-            <div>
-              <label className="label">Interview Score Weight (%)</label>
-              <input
-                type="number" min={0} max={100}
-                className="input"
-                value={intWeight}
-                onChange={e => { const v = parseInt(e.target.value) || 0; setIntWeight(v); setAppWeight(100 - v); }}
-              />
-            </div>
-            {appWeight + intWeight !== 100 && (
-              <div className="flex items-center gap-2 text-amber-700 text-sm">
-                <AlertTriangle size={13} /> Total must equal 100% (currently {appWeight + intWeight}%)
-              </div>
-            )}
-            {savedMsg && <div className="text-sm text-green-600 flex items-center gap-1"><Check size={13} />{savedMsg}</div>}
-            <button className="btn btn-primary" onClick={saveCycle} disabled={isSaving || appWeight + intWeight !== 100}>
-              Save Weights
-            </button>
-          </div>
-        )}
       </div>
+
 
       {/* Super Admin Password Change Modal for a Member */}
       {selectedEvaluatorForPass && isSuperAdmin && (

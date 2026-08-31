@@ -25,8 +25,9 @@ const PAGE_SIZE = 50;
 
 const TRACKS: Track[] = ['Student Council', 'Club Leadership', 'Coordinator'];
 const STATUSES: ApplicationStatus[] = [
-  'Pending Review', 'Under Review', 'Shortlisted', 'Interview', 'Selected', 'Waitlisted', 'Hold', 'Rejected'
+  'Pending Review', 'Under Review', 'Shortlisted', 'Selected', 'Waitlisted', 'Hold', 'Rejected'
 ];
+
 
 export function CandidatesPage() {
   const [allRows, setAllRows] = useState<CandidateRow[]>([]);

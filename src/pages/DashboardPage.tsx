@@ -12,7 +12,6 @@ interface DashboardStats {
   pendingReview: number;
   underReview: number;
   shortlisted: number;
-  interview: number;
   selected: number;
   rejected: number;
   evaluationsDone: number;
@@ -31,7 +30,6 @@ const STATUS_STEPS = [
   { label: 'Applications', key: 'totalApplications', icon: FileText, color: 'text-stone-600' },
   { label: 'Evaluated', key: 'evaluationsDone', icon: TrendingUp, color: 'text-blue-600' },
   { label: 'Shortlisted', key: 'shortlisted', icon: Star, color: 'text-amber-600' },
-  { label: 'Interviews', key: 'interview', icon: Calendar, color: 'text-purple-600' },
   { label: 'Selected', key: 'selected', icon: CheckSquare, color: 'text-green-600' },
 ];
 
@@ -41,11 +39,10 @@ export function DashboardPage() {
 
   useEffect(() => {
     async function load() {
-      const [candidates, applications, evaluations, interviews, decisions, dqIssues] = await Promise.all([
+      const [candidates, applications, evaluations, decisions, dqIssues] = await Promise.all([
         db.candidates.toArray(),
         db.applications.toArray(),
         db.evaluations.toArray(),
-        db.interviews.toArray(),
         db.finalDecisions.toArray(),
         db.dataQualityIssues.count(),
       ]);
@@ -69,7 +66,7 @@ export function DashboardPage() {
         const entry = posMap.get(key)!;
         entry.count++;
         if (evaluatedApps.has(app.id)) entry.evaluated.add(app.id);
-        if (app.status === 'Shortlisted' || app.status === 'Interview' || app.status === 'Selected') entry.shortlisted++;
+        if (app.status === 'Shortlisted' || app.status === 'Selected') entry.shortlisted++;
       }
       const applicationsByPosition = Array.from(posMap.entries())
         .map(([position, d]) => ({ position, track: d.track, count: d.count, evaluated: d.evaluated.size, shortlisted: d.shortlisted }))
@@ -98,17 +95,6 @@ export function DashboardPage() {
           link: '/data-quality',
         });
       }
-      const shortlistedWithoutInterview = applications.filter(
-        a => a.status === 'Shortlisted' && !interviews.find(i => i.applicationId === a.id)
-      ).length;
-      if (shortlistedWithoutInterview > 0) {
-        attentionItems.push({
-          type: 'interview',
-          message: `${shortlistedWithoutInterview} shortlisted candidate${shortlistedWithoutInterview !== 1 ? 's' : ''} have no interview recorded.`,
-          severity: 'medium',
-          link: '/shortlist',
-        });
-      }
 
       // Disagreements
       const appEvalMap = new Map<string, number[]>();
@@ -126,9 +112,10 @@ export function DashboardPage() {
           type: 'disagreement',
           message: `${disagreements} application${disagreements !== 1 ? 's have' : ' has'} significant evaluator disagreement (≥20 point gap).`,
           severity: 'high',
-          link: '/applications',
+          link: '/candidates',
         });
       }
+
 
       setStats({
         totalCandidates: candidates.length,
@@ -136,7 +123,6 @@ export function DashboardPage() {
         pendingReview: countByStatus('Pending Review'),
         underReview: countByStatus('Under Review'),
         shortlisted: countByStatus('Shortlisted'),
-        interview: countByStatus('Interview'),
         selected: countByStatus('Selected'),
         rejected: countByStatus('Rejected'),
         evaluationsDone,
@@ -148,6 +134,7 @@ export function DashboardPage() {
     }
     load();
   }, []);
+
 
   if (isLoading) {
     return (
@@ -169,13 +156,12 @@ export function DashboardPage() {
       <div className="p-6 space-y-6">
 
         {/* Top stats */}
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
           {[
             { label: 'Candidates', value: stats.totalCandidates, icon: Users, color: 'text-navy-700' },
             { label: 'Applications', value: stats.totalApplications, icon: FileText, color: 'text-stone-700' },
             { label: 'Pending Review', value: stats.pendingReview + stats.underReview, icon: Clock, color: 'text-orange-600' },
             { label: 'Shortlisted', value: stats.shortlisted, icon: Star, color: 'text-amber-600' },
-            { label: 'Interviews', value: stats.interview, icon: Calendar, color: 'text-purple-600' },
             { label: 'Selected', value: stats.selected, icon: CheckSquare, color: 'text-green-600' },
           ].map(stat => (
             <div key={stat.label} className="card p-4">
