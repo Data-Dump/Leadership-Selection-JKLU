@@ -7,6 +7,7 @@ import type { Application, Candidate, Evaluation, Position } from '../types';
 
 interface PositionStats {
   position: Position;
+  displayName: string;
   applicationsCount: number;
   evaluatedCount: number;
   shortlistedCount: number;
@@ -16,6 +17,7 @@ interface PositionStats {
     rank: number;
     application: Application;
     candidate: Candidate;
+    evaluationsCount: number;
     avgScore?: number;
     status: string;
   }>;
@@ -41,7 +43,18 @@ export function PositionsPage() {
       const candidateMap = new Map(candidates.map(c => [c.id, c]));
 
       const stats: PositionStats[] = positionList.map(pos => {
-        const posApps = applications.filter(a => a.positionNormalized === pos.nameNormalized);
+        // Strict matching: Track + Position + Club (for club positions)
+        const posApps = applications.filter(a => {
+          if (a.track !== pos.track) return false;
+          if (pos.club || a.club) {
+            return (
+              a.positionNormalized === pos.nameNormalized &&
+              (a.club || '').trim().toLowerCase() === (pos.club || '').trim().toLowerCase()
+            );
+          }
+          return a.positionNormalized === pos.nameNormalized;
+        });
+
         const appIds = new Set(posApps.map(a => a.id));
         const evalledApps = new Set(evaluations.filter(e => appIds.has(e.applicationId)).map(e => e.applicationId));
         const interviewedApps = new Set(interviews.filter(i => appIds.has(i.applicationId)).map(i => i.applicationId));
@@ -57,16 +70,25 @@ export function PositionsPage() {
 
         const ranked = rankApplicationsInPosition(appScores);
 
-        const rankedApplications = ranked.map(r => ({
-          rank: r.rank,
-          application: posApps.find(a => a.id === r.applicationId)!,
-          candidate: candidateMap.get(posApps.find(a => a.id === r.applicationId)?.candidateId || '')!,
-          avgScore: r.avgScore,
-          status: posApps.find(a => a.id === r.applicationId)?.status || '',
-        })).filter(r => r.application && r.candidate);
+        const rankedApplications = ranked.map(r => {
+          const app = posApps.find(a => a.id === r.applicationId)!;
+          const cand = candidateMap.get(app?.candidateId || '')!;
+          const appEvals = evaluations.filter(e => e.applicationId === r.applicationId);
+          return {
+            rank: r.rank,
+            application: app,
+            candidate: cand,
+            evaluationsCount: appEvals.length,
+            avgScore: r.avgScore,
+            status: app?.status || '',
+          };
+        }).filter(r => r.application && r.candidate);
+
+        const displayName = pos.club ? `${pos.name} (${pos.club})` : pos.name;
 
         return {
           position: pos,
+          displayName,
           applicationsCount: posApps.length,
           evaluatedCount: evalledApps.size,
           shortlistedCount: posApps.filter(a => ['Shortlisted', 'Interview', 'Selected'].includes(a.status)).length,
@@ -78,12 +100,14 @@ export function PositionsPage() {
 
       setPositions(stats);
 
-      // Auto-select if query filter matches
+      // Auto-select if query filter matches or first item
       if (queryFilter) {
         const match = stats.find(p =>
-          p.position.name.toLowerCase().includes(queryFilter.toLowerCase())
+          p.displayName.toLowerCase().includes(queryFilter.toLowerCase())
         );
         if (match) setSelectedPos(match);
+      } else if (stats.length > 0 && !selectedPos) {
+        setSelectedPos(stats[0]);
       }
 
       setIsLoading(false);
@@ -96,8 +120,8 @@ export function PositionsPage() {
   return (
     <div className="flex h-full">
       {/* Position list */}
-      <div className="w-64 shrink-0 border-r border-stone-200 bg-white overflow-y-auto">
-        <div className="px-4 py-3 border-b border-stone-100">
+      <div className="w-72 shrink-0 border-r border-stone-200 bg-white overflow-y-auto">
+        <div className="px-4 py-3 border-b border-stone-100 bg-stone-50/50">
           <div className="section-header mb-0">Positions ({positions.length})</div>
         </div>
         {positions.map(ps => (
@@ -108,14 +132,16 @@ export function PositionsPage() {
             }`}
             onClick={() => setSelectedPos(ps)}
           >
-            <div className="text-sm font-medium text-stone-800 truncate">{ps.position.name}</div>
+            <div className="text-sm font-medium text-stone-800 leading-snug">{ps.displayName}</div>
             <div className="text-xs text-stone-400 mt-0.5">
-              {ps.position.track} {ps.position.club ? `· ${ps.position.club}` : ''}
+              {ps.position.track}
             </div>
             <div className="flex gap-3 mt-1 text-2xs text-stone-400">
-              <span>{ps.applicationsCount} applied</span>
-              <span>{ps.evaluatedCount} evaluated</span>
-              <span>{ps.shortlistedCount} shortlisted</span>
+              <span className="font-mono">{ps.applicationsCount} applied</span>
+              <span>•</span>
+              <span className="font-mono">{ps.evaluatedCount} evaluated</span>
+              <span>•</span>
+              <span className="font-mono">{ps.shortlistedCount} shortlisted</span>
             </div>
           </button>
         ))}
@@ -131,14 +157,16 @@ export function PositionsPage() {
         ) : (
           <div>
             <div className="bg-white border-b border-stone-200 px-6 py-5">
-              <h1 className="page-title">{selectedPos.position.name}</h1>
-              <div className="flex items-center gap-4 mt-1 text-sm text-stone-500">
-                <span>{selectedPos.position.track}</span>
-                {selectedPos.position.club && <span>· {selectedPos.position.club}</span>}
+              <div className="flex items-center gap-2 mb-1">
+                <span className="badge bg-stone-100 text-stone-700 text-xs">{selectedPos.position.track}</span>
+                {selectedPos.position.club && (
+                  <span className="badge bg-navy-50 text-navy-700 border border-navy-200 text-xs">Club: {selectedPos.position.club}</span>
+                )}
               </div>
-              <div className="flex gap-6 mt-3 text-sm">
+              <h1 className="page-title">{selectedPos.displayName}</h1>
+              <div className="flex gap-6 mt-4 text-sm">
                 {[
-                  { label: 'Applications', value: selectedPos.applicationsCount },
+                  { label: 'Total Applications', value: selectedPos.applicationsCount },
                   { label: 'Evaluated', value: selectedPos.evaluatedCount },
                   { label: 'Shortlisted', value: selectedPos.shortlistedCount },
                   { label: 'Interviewed', value: selectedPos.interviewedCount },
@@ -146,7 +174,7 @@ export function PositionsPage() {
                 ].map(s => (
                   <div key={s.label}>
                     <div className="text-xs text-stone-400">{s.label}</div>
-                    <div className="font-semibold text-stone-700 font-mono">{s.value}</div>
+                    <div className="font-semibold text-stone-800 font-mono text-base">{s.value}</div>
                   </div>
                 ))}
               </div>
@@ -154,10 +182,12 @@ export function PositionsPage() {
 
             <div className="p-6">
               <div className="card">
-                <div className="px-5 py-3 border-b border-stone-100">
-                  <div className="section-header mb-0">Candidates — Ranked by Average Score</div>
-                  <div className="text-xs text-stone-400 mt-1">
-                    Only ranks candidates with at least one submitted evaluation. Unranked candidates shown at bottom.
+                <div className="px-5 py-3 border-b border-stone-100 flex items-center justify-between">
+                  <div>
+                    <div className="section-header mb-0">Applied Candidates ({selectedPos.rankedApplications.length})</div>
+                    <div className="text-xs text-stone-400 mt-0.5">
+                      Ranked by average evaluation score. Candidates with no evaluations are listed at the bottom.
+                    </div>
                   </div>
                 </div>
                 <div className="table-wrapper">
@@ -167,14 +197,15 @@ export function PositionsPage() {
                         <th>Rank</th>
                         <th>Candidate</th>
                         <th>Roll No.</th>
+                        <th>Programme / Batch</th>
                         <th>Status</th>
-                        <th>Evaluations</th>
+                        <th className="text-center">Evaluations</th>
                         <th className="text-right">Avg Score</th>
                       </tr>
                     </thead>
                     <tbody>
                       {selectedPos.rankedApplications.length === 0 ? (
-                        <tr><td colSpan={6} className="py-8 text-center text-stone-400">No candidates for this position.</td></tr>
+                        <tr><td colSpan={7} className="py-8 text-center text-stone-400">No candidates applied for this specific position.</td></tr>
                       ) : selectedPos.rankedApplications.map(row => (
                         <tr key={row.application.id}>
                           <td className="font-mono text-sm text-stone-400">
@@ -185,9 +216,18 @@ export function PositionsPage() {
                               {row.candidate.fullName}
                             </Link>
                           </td>
-                          <td className="font-mono text-xs text-stone-400">{row.candidate.rollNumber}</td>
+                          <td className="font-mono text-xs text-stone-500">{row.candidate.rollNumber}</td>
+                          <td className="text-xs text-stone-500">
+                            {row.candidate.programme || '—'} {row.candidate.batch ? `(${row.candidate.batch})` : ''}
+                          </td>
                           <td><StatusBadge status={row.status as never} /></td>
-                          <td className="text-right font-mono text-sm text-stone-500">—</td>
+                          <td className="text-center font-mono text-xs text-stone-600">
+                            {row.evaluationsCount > 0 ? (
+                              <span className="badge bg-blue-50 text-blue-700 border border-blue-200">{row.evaluationsCount}</span>
+                            ) : (
+                              <span className="text-stone-300">0</span>
+                            )}
+                          </td>
                           <td className="text-right">
                             {row.avgScore !== undefined ? (
                               <ScoreDisplay score={row.avgScore} size="sm" />

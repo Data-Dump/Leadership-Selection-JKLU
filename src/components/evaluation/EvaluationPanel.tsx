@@ -46,7 +46,12 @@ export function EvaluationPanel({ applicationId, onClose }: Props) {
       setCandidate(cand || null);
 
       // Get rubric for this position or default
-      const pos = await db.positions.where('nameNormalized').equals(app.positionNormalized).first();
+      const allPositions = await db.positions.toArray();
+      const pos = allPositions.find(p =>
+        p.nameNormalized === app.positionNormalized &&
+        p.track === app.track &&
+        (!p.club || (app.club && p.club.toLowerCase() === app.club.toLowerCase()))
+      );
       let rubric = pos?.rubricId
         ? await db.rubrics.get(pos.rubricId)
         : await db.rubrics.get('rubric-default-1');

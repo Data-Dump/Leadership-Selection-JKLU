@@ -64,7 +64,7 @@ export function DashboardPage() {
       const posMap = new Map<string, { track: string; count: number; evaluated: Set<string>; shortlisted: number }>();
       const evaluatedApps = new Set(evaluations.filter(e => !e.isDraft).map(e => e.applicationId));
       for (const app of applications) {
-        const key = app.position;
+        const key = app.club ? `${app.position} (${app.club})` : app.position;
         if (!posMap.has(key)) posMap.set(key, { track: app.track, count: 0, evaluated: new Set(), shortlisted: 0 });
         const entry = posMap.get(key)!;
         entry.count++;
