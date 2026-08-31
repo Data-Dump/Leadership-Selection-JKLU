@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { db } from '../data/db';
 import { PageHeader, StatusBadge, TrackBadge, ScoreDisplay, EmptyState } from '../components/shared/SharedComponents';
 import { calculateAverageScore, hasSignificantDisagreement } from '../scoring/engine';
+import { comparePositions } from '../utils/positionHierarchy';
 import { useDebounce } from '../hooks/useDebounce';
 import Fuse from 'fuse.js';
 import type { Application, Candidate, Evaluation, ApplicationStatus, Track } from '../types';
@@ -61,14 +62,37 @@ export function ApplicationsPage() {
 
   useEffect(() => { load(); }, []);
 
-  // Unique positions for filter
-  const positions = [...new Set(rows.map(r => r.application.position))].sort();
+  // Unique positions for filter, sorted strictly by hierarchy
+  const positionOptions = Array.from(
+    new Map(
+      rows.map(r => {
+        const label = r.application.club
+          ? `${r.application.position} (${r.application.club})`
+          : r.application.position;
+        return [
+          `${r.application.track}::${r.application.position}::${r.application.club || ''}`,
+          {
+            key: `${r.application.track}::${r.application.position}::${r.application.club || ''}`,
+            label,
+            position: r.application.position,
+            club: r.application.club,
+            track: r.application.track,
+          },
+        ];
+      })
+    ).values()
+  ).sort((a, b) => comparePositions(a, b));
 
   useEffect(() => {
     let result = rows;
     if (trackFilter) result = result.filter(r => r.application.track === trackFilter);
     if (statusFilter) result = result.filter(r => r.application.status === statusFilter);
-    if (positionFilter) result = result.filter(r => r.application.position === positionFilter);
+    if (positionFilter) {
+      result = result.filter(r => {
+        const key = `${r.application.track}::${r.application.position}::${r.application.club || ''}`;
+        return key === positionFilter || r.application.position === positionFilter;
+      });
+    }
 
     if (debouncedQuery.trim()) {
       const fuse = new Fuse(result, {
@@ -119,9 +143,9 @@ export function ApplicationsPage() {
             </div>
             <div>
               <label className="label">Position</label>
-              <select className="input w-52" value={positionFilter} onChange={e => setPositionFilter(e.target.value)}>
+              <select className="input w-64" value={positionFilter} onChange={e => setPositionFilter(e.target.value)}>
                 <option value="">All</option>
-                {positions.map(p => <option key={p} value={p}>{p}</option>)}
+                {positionOptions.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
               </select>
             </div>
             {hasFilters && (

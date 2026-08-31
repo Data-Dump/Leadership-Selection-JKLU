@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { db } from '../data/db';
 import { PageHeader, StatusBadge, ScoreDisplay, EmptyState } from '../components/shared/SharedComponents';
 import { calculateAverageScore, rankApplicationsInPosition } from '../scoring/engine';
+import { comparePositions } from '../utils/positionHierarchy';
 import type { Application, Candidate, Evaluation, Position } from '../types';
 
 interface PositionStats {
@@ -96,7 +97,10 @@ export function PositionsPage() {
           selectedCount: posApps.filter(a => a.status === 'Selected').length,
           rankedApplications,
         };
-      }).sort((a, b) => b.applicationsCount - a.applicationsCount);
+      }).sort((a, b) => comparePositions(
+        { name: a.position.name, club: a.position.club, track: a.position.track },
+        { name: b.position.name, club: b.position.club, track: b.position.track }
+      ));
 
       setPositions(stats);
 

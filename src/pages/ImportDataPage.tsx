@@ -3,6 +3,7 @@ import { db } from '../data/db';
 import { parseCSVText } from '../data/csvParser';
 import { useAuth } from '../auth/AuthContext';
 import { logAudit } from '../data/audit';
+import { comparePositions } from '../utils/positionHierarchy';
 import { PageHeader } from '../components/shared/SharedComponents';
 import { Upload, CheckCircle, AlertTriangle, FileText, X } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
@@ -63,28 +64,31 @@ export function ImportDataPage() {
 
       // Auto-create missing positions
       const existingPositions = await db.positions.toArray();
-      const existingPosNames = new Set(existingPositions.map(p => p.nameNormalized));
+      const existingPosKeys = new Set(existingPositions.map(p => `${p.track}::${p.nameNormalized}${p.club ? `::${p.club.toLowerCase()}` : ''}`));
       const defaultRubric = await db.rubrics.get('rubric-default-1');
 
       const positionMap = new Map<string, { name: string; track: string; club?: string }>();
       for (const app of newApplications) {
-        const key = app.positionNormalized;
-        if (!existingPosNames.has(key) && !positionMap.has(key)) {
+        const key = `${app.track}::${app.positionNormalized}${app.club ? `::${app.club.toLowerCase()}` : ''}`;
+        if (!existingPosKeys.has(key) && !positionMap.has(key)) {
           positionMap.set(key, { name: app.position, track: app.track, club: app.club });
         }
       }
 
       const now = Date.now();
-      const newPositions: Position[] = Array.from(positionMap.entries()).map(([key, val]) => ({
+      const newPositions: Position[] = Array.from(positionMap.values()).map(val => ({
         id: uuidv4(),
         name: val.name,
-        nameNormalized: key,
+        nameNormalized: val.name.toLowerCase().replace(/[\s\-–—]+/g, ' '),
         track: val.track as Position['track'],
         club: val.club,
         rubricId: defaultRubric?.id,
         createdAt: now,
         updatedAt: now,
-      }));
+      })).sort((a, b) => comparePositions(
+        { name: a.name, club: a.club, track: a.track },
+        { name: b.name, club: b.club, track: b.track }
+      ));
       if (newPositions.length > 0) await db.positions.bulkAdd(newPositions);
 
       await logAudit(user.id, user.name, 'imported', {

@@ -4,6 +4,7 @@ import { db } from '../data/db';
 import { useAuth } from '../auth/AuthContext';
 import { logAudit } from '../data/audit';
 import { calculateAverageScore, calculateFinalScore, rankApplicationsInPosition } from '../scoring/engine';
+import { comparePositions } from '../utils/positionHierarchy';
 import { PageHeader, ScoreDisplay, ConfirmDialog, EmptyState } from '../components/shared/SharedComponents';
 import { v4 as uuidv4 } from 'uuid';
 import type { Application, Candidate, Evaluation, Interview, FinalDecision, SelectionCycle, FinalDecisionType } from '../types';
@@ -24,6 +25,8 @@ interface FinalRow {
 
 interface PositionGroup {
   position: string;
+  displayName: string;
+  club?: string;
   track: string;
   rows: FinalRow[];
 }
@@ -53,7 +56,7 @@ export function FinalSelectionPage() {
     const cycleWeights = activeCycle || { applicationWeight: 70, interviewWeight: 30 };
     setCycle(activeCycle || null);
 
-    // Group by position
+    // Group by position (and club for club leadership)
     const posMap = new Map<string, FinalRow[]>();
     for (const app of applications) {
       const cand = candidateMap.get(app.candidateId);
@@ -87,7 +90,7 @@ export function FinalSelectionPage() {
 
     // Rank within each position
     const grouped: PositionGroup[] = [];
-    for (const [key, rows] of posMap.entries()) {
+    for (const [, rows] of posMap.entries()) {
       const appScores = rows.map(r => ({ applicationId: r.application.id, avgScore: r.finalScore }));
       const ranked = rankApplicationsInPosition(appScores);
       const rankedRows = rows.map(r => {
@@ -95,15 +98,24 @@ export function FinalSelectionPage() {
         return { ...r, rank: rankEntry?.rank || 0 };
       }).sort((a, b) => (a.rank || 999) - (b.rank || 999));
 
-      const [, pos] = key.split('::');
+      const firstApp = rows[0].application;
+      const displayName = firstApp.club ? `${firstApp.position} (${firstApp.club})` : firstApp.position;
+
       grouped.push({
-        position: rows[0].application.position,
-        track: rows[0].application.track,
+        position: firstApp.position,
+        displayName,
+        club: firstApp.club,
+        track: firstApp.track,
         rows: rankedRows,
       });
     }
 
-    setGroups(grouped.sort((a, b) => a.position.localeCompare(b.position)));
+    // Sort groups strictly according to position hierarchy:
+    // President -> General Secretary -> Secretary -> Club Leadership (grouped by club, Chair then Co-Chair) -> Coordinators -> Other
+    setGroups(grouped.sort((a, b) => comparePositions(
+      { name: a.position, club: a.club, track: a.track },
+      { name: b.position, club: b.club, track: b.track }
+    )));
     setIsLoading(false);
   }
 
@@ -176,10 +188,20 @@ export function FinalSelectionPage() {
             description="Shortlist and interview candidates before making final decisions."
           />
         ) : groups.map(group => (
-          <div key={group.position} className="card">
-            <div className="px-5 py-3 border-b border-stone-100">
-              <div className="font-semibold text-stone-800">{group.position}</div>
-              <div className="text-xs text-stone-400">{group.track}</div>
+          <div key={`${group.track}::${group.position}::${group.club || ''}`} className="card">
+            <div className="px-5 py-3 border-b border-stone-100 flex items-center justify-between">
+              <div>
+                <div className="font-semibold text-stone-800 text-base">{group.displayName}</div>
+                <div className="flex items-center gap-2 text-xs text-stone-400 mt-0.5">
+                  <span className="badge bg-stone-100 text-stone-700">{group.track}</span>
+                  {group.club && (
+                    <span className="badge bg-navy-50 text-navy-700 border border-navy-200">
+                      Club: {group.club}
+                    </span>
+                  )}
+                  <span>• {group.rows.length} candidate{group.rows.length !== 1 ? 's' : ''}</span>
+                </div>
+              </div>
             </div>
             <div className="table-wrapper">
               <table className="data-table">

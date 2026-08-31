@@ -5,6 +5,7 @@ import { setApplicationStatus } from '../data/audit';
 import { useAuth } from '../auth/AuthContext';
 import { PageHeader, StatusBadge, ScoreDisplay, ConfirmDialog, EmptyState } from '../components/shared/SharedComponents';
 import { calculateAverageScore, hasSignificantDisagreement } from '../scoring/engine';
+import { comparePositions } from '../utils/positionHierarchy';
 import type { Application, Candidate, Evaluation, Track } from '../types';
 import { AlertTriangle, Calendar } from 'lucide-react';
 
@@ -50,6 +51,14 @@ export function ShortlistPage() {
           avgScore: calculateAverageScore(evals),
           hasDisagreement: hasSignificantDisagreement(evals),
         };
+      })
+      .sort((a, b) => {
+        const posCmp = comparePositions(
+          { name: a.application.position, club: a.application.club, track: a.application.track },
+          { name: b.application.position, club: b.application.club, track: b.application.track }
+        );
+        if (posCmp !== 0) return posCmp;
+        return (b.avgScore || 0) - (a.avgScore || 0);
       });
 
     setRows(data);

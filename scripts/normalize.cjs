@@ -338,8 +338,53 @@ async function runNormalization(rawRows) {
     }
   }
 
+  function getPositionHierarchyInfo(item) {
+    const posName = String(item.name || item.position || '').trim();
+    const club = String(item.club || '').trim();
+    const track = String(item.track || '').trim();
+    const lowerPos = posName.toLowerCase();
+    const lowerTrack = track.toLowerCase();
+
+    if (lowerPos.includes('president') && !lowerPos.includes('vice')) {
+      return { tier: 1, clubName: '', subTier: 1, normalizedName: posName };
+    }
+    if (lowerPos.includes('general secretary') || lowerPos.includes('gen sec') || lowerPos.includes('gensec')) {
+      return { tier: 2, clubName: '', subTier: 1, normalizedName: posName };
+    }
+    if (lowerPos.includes('secretary') || lowerPos.includes('sec')) {
+      return { tier: 3, clubName: '', subTier: 1, normalizedName: posName };
+    }
+    const isClubTrack = lowerTrack.includes('club') || Boolean(club);
+    const isClubChair = lowerPos.includes('chair') && !lowerPos.includes('co-chair') && !lowerPos.includes('co chair');
+    const isClubCoChair = lowerPos.includes('co-chair') || lowerPos.includes('co chair') || lowerPos.includes('cochair');
+    if (isClubTrack || isClubChair || isClubCoChair) {
+      let subTier = 3;
+      if (isClubChair) subTier = 1;
+      else if (isClubCoChair) subTier = 2;
+      const cleanClub = (club || 'General').trim();
+      return { tier: 4, clubName: cleanClub.toLowerCase(), subTier, normalizedName: `${cleanClub} - ${posName}` };
+    }
+    if (lowerTrack.includes('coord') || lowerPos.includes('coord')) {
+      return { tier: 5, clubName: '', subTier: 1, normalizedName: posName };
+    }
+    return { tier: 6, clubName: '', subTier: 1, normalizedName: posName };
+  }
+
+  function comparePositions(a, b) {
+    const infoA = getPositionHierarchyInfo(a);
+    const infoB = getPositionHierarchyInfo(b);
+    if (infoA.tier !== infoB.tier) return infoA.tier - infoB.tier;
+    if (infoA.tier === 4) {
+      const clubCompare = infoA.clubName.localeCompare(infoB.clubName);
+      if (clubCompare !== 0) return clubCompare;
+      if (infoA.subTier !== infoB.subTier) return infoA.subTier - infoB.subTier;
+      return infoA.normalizedName.localeCompare(infoB.normalizedName);
+    }
+    return infoA.normalizedName.localeCompare(infoB.normalizedName);
+  }
+
   const candidates = Array.from(candidatesMap.values());
-  const positions = Array.from(positionsMap.values());
+  const positions = Array.from(positionsMap.values()).sort(comparePositions);
 
   return {
     candidates,

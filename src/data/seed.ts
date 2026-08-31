@@ -5,6 +5,7 @@
 import { db } from './db';
 import { parseCSVText } from './csvParser';
 import { v4 as uuidv4 } from 'uuid';
+import { comparePositions } from '../utils/positionHierarchy';
 import type {
   Evaluator,
   Rubric,
@@ -180,7 +181,7 @@ export async function seedDatabase(csvText?: string): Promise<{ seeded: boolean;
   // 5. Auto-create positions from the applications
   const positionMap = new Map<string, { name: string; track: string; club?: string }>();
   for (const app of parseResult.applications) {
-    const key = `${app.track}::${app.positionNormalized}`;
+    const key = `${app.track}::${app.positionNormalized}${app.club ? `::${app.club.toLowerCase()}` : ''}`;
     if (!positionMap.has(key)) {
       positionMap.set(key, { name: app.position, track: app.track, club: app.club });
     }
@@ -199,6 +200,10 @@ export async function seedDatabase(csvText?: string): Promise<{ seeded: boolean;
       updatedAt: now,
     });
   }
+  positions.sort((a, b) => comparePositions(
+    { name: a.name, club: a.club, track: a.track },
+    { name: b.name, club: b.club, track: b.track }
+  ));
   await db.positions.bulkAdd(positions);
 
   // 6. Audit entry for import
