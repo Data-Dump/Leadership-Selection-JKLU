@@ -37,7 +37,6 @@ export function LoginPage() {
 
   // Registered admins
   const [evaluatorTabAdmins, setEvaluatorTabAdmins] = useState<Evaluator[]>([]);
-  const [adminTabAdmins, setAdminTabAdmins] = useState<Evaluator[]>([]);
   const [selectedAdminForPass, setSelectedAdminForPass] = useState<Evaluator | null>(null);
   const [adminModalPass, setAdminModalPass] = useState('');
   const [showAdminPass, setShowAdminPass] = useState(false);
@@ -77,10 +76,6 @@ export function LoginPage() {
                !e.email.toLowerCase().includes('kaushal')
         );
         setEvaluatorTabAdmins(evalAdmins);
-
-        // Admin tab: all Admins and Super Admins (including Kaushal Malvi)
-        const allAdmins = evals.filter(e => e.active && (e.role === 'Admin' || e.role === 'Super Admin'));
-        setAdminTabAdmins(allAdmins);
 
         setSeedStatus('done');
       } catch (err: any) {
@@ -404,28 +399,7 @@ export function LoginPage() {
                 </p>
               </div>
 
-              {/* Quick Fill for Admin Tab */}
-              {adminTabAdmins.length > 0 && (
-                <div className="mb-4 pt-1">
-                  <div className="text-2xs text-stone-400 mb-2">Or select registered account:</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {adminTabAdmins.map(admin => (
-                      <button
-                        key={admin.id}
-                        type="button"
-                        onClick={() => {
-                          setEmail(admin.email);
-                          setPassword('');
-                          setError('');
-                        }}
-                        className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded text-xs transition-colors font-medium"
-                      >
-                        {admin.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+
 
 
               <form onSubmit={handleAdminSubmit} className="space-y-4">
