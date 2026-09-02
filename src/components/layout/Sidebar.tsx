@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, FileText, Briefcase, ClipboardCheck,
   Star, Calendar, CheckSquare, BarChart2, Upload, Settings,
   LogOut, ChevronLeft, ChevronRight, Shield, AlertTriangle,
-  BookOpen,
+  BookOpen, Printer
 } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { clsx } from 'clsx';
@@ -22,6 +22,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', icon: BarChart2, label: 'Admin Overview', adminOnly: true },
   { to: '/evaluation', icon: ClipboardCheck, label: 'Evaluation Queue' },
   { to: '/candidates', icon: Users, label: 'Candidates' },
+  { to: '/dossier', icon: Printer, label: 'Print Dossier' },
   { to: '/positions', icon: Briefcase, label: 'Positions', adminOnly: true },
   { to: '/shortlist', icon: Star, label: 'Shortlist', adminOnly: true },
 

@@ -6,7 +6,7 @@ import {
   StatusBadge, ScoreDisplay, TrackBadge, EmptyState, PageHeader
 } from '../components/shared/SharedComponents';
 import Fuse from 'fuse.js';
-import { ChevronUp, ChevronDown, Filter, X } from 'lucide-react';
+import { ChevronUp, ChevronDown, Filter, X, Printer, ExternalLink } from 'lucide-react';
 import type { Candidate, Application, ApplicationStatus, Track } from '../types';
 
 interface CandidateRow {
@@ -172,6 +172,24 @@ export function CandidatesPage() {
       <PageHeader
         title="Candidates"
         subtitle={`${allRows.length} candidates · ${filtered.length} shown`}
+        actions={
+          <div className="flex items-center gap-2">
+            <Link to="/dossier" className="btn btn-secondary flex items-center gap-1.5 text-xs">
+              <Printer size={13} />
+              <span>Dossier View</span>
+            </Link>
+            <a
+              href="/student_dossier.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-primary flex items-center gap-1.5 text-xs"
+            >
+              <Printer size={13} />
+              <span>Print Hard Copy (PDF)</span>
+              <ExternalLink size={12} className="opacity-70" />
+            </a>
+          </div>
+        }
       />
 
       <div className="p-6">

@@ -15,6 +15,8 @@ import { DataQualityPage } from './pages/DataQualityPage';
 import { AuditLogPage } from './pages/AuditLogPage';
 import { SettingsPage } from './pages/SettingsPage';
 
+import { PrintDossierPage } from './pages/PrintDossierPage';
+
 function DashboardRouter() {
   const { user } = useAuth();
   if (user?.role === 'Evaluator') {
@@ -36,6 +38,8 @@ function App() {
             <Route path="evaluator" element={<Navigate to="/evaluator/dashboard" replace />} />
             <Route path="candidates" element={<CandidatesPage />} />
             <Route path="candidates/:id" element={<CandidateProfilePage />} />
+            <Route path="dossier" element={<PrintDossierPage />} />
+            <Route path="print-dossier" element={<PrintDossierPage />} />
             <Route path="applications" element={<Navigate to="/candidates" replace />} />
             <Route path="positions" element={<PositionsPage />} />
 
